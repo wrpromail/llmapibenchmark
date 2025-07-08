@@ -26,7 +26,8 @@ func PrintBenchmarkHeader(modelName string, inputTokens int, maxTokens int, late
 
 // SaveResultsToMD saves the benchmark results to a Markdown file.
 func SaveResultsToMD(results [][]interface{}, modelName string, inputTokens int, maxTokens int, latency float64) {
-	filename := fmt.Sprintf("API_Throughput_%s.md", modelName)
+	safeModelName := SanitizeFilename(modelName)
+	filename := fmt.Sprintf("API_Throughput_%s.md", safeModelName)
 	file, err := os.Create(filename)
 	if err != nil {
 		log.Printf("Error creating file: %v", err)

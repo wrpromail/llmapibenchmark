@@ -3,14 +3,18 @@ package api
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/sashabaranov/go-openai"
 )
 
 // AskOpenAI sends a prompt to the OpenAI API and retrieves the response.
 func AskOpenAI(client *openai.Client, model, prompt string, maxTokens int) (*openai.ChatCompletionResponse, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+
 	resp, err := client.CreateChatCompletion(
-		context.Background(),
+		ctx,
 		openai.ChatCompletionRequest{
 			Model: model,
 			Messages: []openai.ChatCompletionMessage{
@@ -35,9 +39,12 @@ func AskOpenAI(client *openai.Client, model, prompt string, maxTokens int) (*ope
 
 // AskOpenAI sends a prompt to the OpenAI API and retrieves the response.
 func AskOpenAIwithRandomInput(client *openai.Client, model string, numWords int, maxTokens int) (*openai.ChatCompletionResponse, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+
 	prompt := generateRandomPhrase(numWords)
 	resp, err := client.CreateChatCompletion(
-		context.Background(),
+		ctx,
 		openai.ChatCompletionRequest{
 			Model: model,
 			Messages: []openai.ChatCompletionMessage{

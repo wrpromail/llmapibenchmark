@@ -4,6 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
+	"time"
 
 	"github.com/sashabaranov/go-openai"
 
@@ -30,6 +32,18 @@ func main() {
 	// Initialize OpenAI client
 	var modelName string
 	config := openai.DefaultConfig(*apiKey)
+	config.HTTPClient = &http.Client{
+		Timeout: 180 * time.Second, // 增加到3分钟
+		Transport: &http.Transport{
+			MaxIdleConns:        50, // 减少最大连接数
+			MaxIdleConnsPerHost: 10, // 减少每个主机的连接数
+			MaxConnsPerHost:     12, // 限制每个主机的最大连接数
+			IdleConnTimeout:     60 * time.Second,
+			DisableKeepAlives:   true, // 禁用keep-alive，每次都新建连接
+			DisableCompression:  false,
+			ForceAttemptHTTP2:   false, // 禁用HTTP/2
+		},
+	}
 	config.BaseURL = *baseURL
 	client := openai.NewClientWithConfig(config)
 

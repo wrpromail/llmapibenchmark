@@ -19,9 +19,13 @@ func MeasureTTFT(client *openai.Client, model, prompt string, concurrency int) (
 		wg.Add(1)
 		go func(index int) {
 			defer wg.Done()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+			defer cancel()
+
 			start := time.Now()
 			stream, err := client.CreateChatCompletionStream(
-				context.Background(),
+				ctx, // ← 使用带超时的context
 				openai.ChatCompletionRequest{
 					Model: model,
 					Messages: []openai.ChatCompletionMessage{
@@ -40,7 +44,8 @@ func MeasureTTFT(client *openai.Client, model, prompt string, concurrency int) (
 				},
 			)
 			if err != nil {
-				log.Printf("TTFT Request error: %v", err)
+				log.Printf("TTFT Request error (goroutine %d): %v", index, err)
+				ttftChan <- -1 // ← 发送错误标记
 				return
 			}
 			defer stream.Close()
@@ -48,7 +53,8 @@ func MeasureTTFT(client *openai.Client, model, prompt string, concurrency int) (
 			// Listen for the first response
 			_, err = stream.Recv()
 			if err != nil {
-				log.Printf("TTFT Stream error: %v", err)
+				log.Printf("TTFT Stream error (goroutine %d): %v", index, err)
+				ttftChan <- -1 // ← 发送错误标记
 				return
 			}
 
@@ -64,13 +70,25 @@ func MeasureTTFT(client *openai.Client, model, prompt string, concurrency int) (
 	// Calculate maximum and minimum TTFT
 	maxTTFT := 0.0
 	minTTFT := math.Inf(1)
+	validCount := 0
 	for ttft := range ttftChan {
+		if ttft < 0 {
+			// Skip error markers
+			continue
+		}
+		validCount++
 		if ttft > maxTTFT {
 			maxTTFT = ttft
 		}
 		if ttft < minTTFT {
 			minTTFT = ttft
 		}
+	}
+
+	// If no valid responses, return default values
+	if validCount == 0 {
+		log.Printf("Warning: No valid TTFT measurements for concurrency %d", concurrency)
+		return 0, 0
 	}
 
 	return maxTTFT, minTTFT
@@ -84,10 +102,14 @@ func MeasureTTFTwithRandomInput(client *openai.Client, model string, numWords in
 		wg.Add(1)
 		go func(index int) {
 			defer wg.Done()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+			defer cancel()
+
 			prompt := generateRandomPhrase(numWords)
 			start := time.Now()
 			stream, err := client.CreateChatCompletionStream(
-				context.Background(),
+				ctx, // ← 使用带超时的context
 				openai.ChatCompletionRequest{
 					Model: model,
 					Messages: []openai.ChatCompletionMessage{
@@ -106,7 +128,8 @@ func MeasureTTFTwithRandomInput(client *openai.Client, model string, numWords in
 				},
 			)
 			if err != nil {
-				log.Printf("TTFT Request error: %v", err)
+				log.Printf("TTFT Request error (goroutine %d): %v", index, err)
+				ttftChan <- -1 // ← 发送错误标记
 				return
 			}
 			defer stream.Close()
@@ -114,7 +137,8 @@ func MeasureTTFTwithRandomInput(client *openai.Client, model string, numWords in
 			// Listen for the first response
 			_, err = stream.Recv()
 			if err != nil {
-				log.Printf("TTFT Stream error: %v", err)
+				log.Printf("TTFT Stream error (goroutine %d): %v", index, err)
+				ttftChan <- -1 // ← 发送错误标记
 				return
 			}
 
@@ -130,13 +154,25 @@ func MeasureTTFTwithRandomInput(client *openai.Client, model string, numWords in
 	// Calculate maximum and minimum TTFT
 	maxTTFT := 0.0
 	minTTFT := math.Inf(1)
+	validCount := 0
 	for ttft := range ttftChan {
+		if ttft < 0 {
+			// Skip error markers
+			continue
+		}
+		validCount++
 		if ttft > maxTTFT {
 			maxTTFT = ttft
 		}
 		if ttft < minTTFT {
 			minTTFT = ttft
 		}
+	}
+
+	// If no valid responses, return default values
+	if validCount == 0 {
+		log.Printf("Warning: No valid TTFT measurements for concurrency %d", concurrency)
+		return 0, 0
 	}
 
 	return maxTTFT, minTTFT
